@@ -84,6 +84,12 @@ type Options struct {
 	LocalPodCIDRs               []string
 	VkOptionsDefaultTemplate    string
 
+	// Peer-loss Pod policy (see the peerloss package).
+	PeerLossConfirmationWindow time.Duration
+	PeerLossRecoveryWindow     time.Duration
+	PeerLossRetentionPeriod    time.Duration
+	EnablePeerLossEviction     bool
+
 	// Cross module
 	EnableAPIServerProxyIPRemapping bool
 	APIServerIPUseEndpointSlices    bool

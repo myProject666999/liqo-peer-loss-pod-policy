@@ -42,6 +42,42 @@ Also, new pods are scheduled on the remaining local nodes.
 As the virtual node transparently implements the standard Kubernetes interface, service continuity in the local cluster is guaranteed by Kubernetes in the event of unavailability of the remote cluster.
 Look at the [official guide](https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/#conditions) for further details.
 
+#### Peer-loss Pod policy
+
+When the network towards a peer is lost, the local offloaded pods are handled by a dedicated policy implemented in the
+`podstatus-controller`. The policy is driven by the persistent `NetworkConnectionStatus` condition of the `ForeignCluster`
+(not by the generic `NodeReady` condition), so that a cross-cluster disconnection is never confused with resource
+exhaustion or an operator cordon/drain:
+
+- **Resource exhaustion** (the virtual node advertises zero CPU/memory) and **cordon/drain** (`spec.unschedulable`) never
+  trigger the peer-loss policy.
+- The loss is **confirmed** only after the disconnection has persisted for the configurable
+  `--peer-loss-confirmation-window` (default `1m`), anchored to the condition `LastTransitionTime`. If the connectivity
+  cannot be confirmed (condition missing or without a transition timestamp), the controller does not guess and leaves the
+  pods untouched.
+- While the peer is disconnected, pods are immediately labeled with `liqo.io/remote-unavailable=true`, which makes the
+  local control plane stop routing traffic to them. This is non-destructive and reversible.
+- Once the loss is confirmed, the pod policy applies. By **default pods are retained**: stateful workloads, bare pods and
+  any other workload are never evicted automatically, and even stateless workloads default to retain. Eviction (or the
+  forced deletion of already terminating pods) only happens when **both** the global switch
+  `controllerManager.config.enablePeerLossEviction` (`--enable-peer-loss-eviction`) is set **and** the pod explicitly opts
+  in through the `liqo.io/peer-loss-policy: Evict` annotation.
+
+```{warning}
+Liqo cannot prove from the consumer cluster that the remote replicas have actually stopped while the network is down.
+Evicting (and thus recreating) them may produce two active replicas (dual-active), which is unsafe for workloads that do
+not tolerate concurrent writers. This is why automatic eviction is disabled by default and requires explicit opt-in.
+```
+
+When the peer recovers, the remote unavailable label is cleared only after the connectivity has been stable for
+`--peer-loss-recovery-window` (default `30s`), to avoid flapping. The remote replicas are kept as the source of truth:
+recovery does not recreate or delete anything locally. Pending deadlines are always honored through a scheduled
+re-evaluation (`RequeueAfter`), so the policy does not depend on an external event to make progress.
+
+The virtual node also reports the last observed peer connectivity through the `liqo.io/peer-observation`,
+`liqo.io/peer-observation-stale` and `liqo.io/peer-last-observed-ready` annotations. The observation is always marked as
+stale: it reports the last known state and does not claim that the remote cluster is currently able to serve.
+
 ### Local cluster failure
 
 In this scenario the local cluster is unavailable/unhealthy.

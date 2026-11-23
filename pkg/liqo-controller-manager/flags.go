@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/liqotech/liqo/pkg/consts"
+	"github.com/liqotech/liqo/pkg/liqo-controller-manager/offloading/peerloss"
 	"github.com/liqotech/liqo/pkg/utils/args"
 )
 
@@ -122,6 +123,17 @@ func InitFlags(flagset *pflag.FlagSet, opts *Options) {
 	flagset.StringSliceVar(&opts.LocalPodCIDRs, "podcidr", nil, "The CIDRs to use for the pod network")
 	flagset.StringVar(&opts.VkOptionsDefaultTemplate, "vk-options-default-template", "",
 		"Namespaced name of the default virtual-kubelet options template")
+
+	// Peer-loss Pod policy
+	flagset.DurationVar(&opts.PeerLossConfirmationWindow, "peer-loss-confirmation-window", peerloss.DefaultConfirmationWindow,
+		"How long a peer network loss must persist before it is confirmed and the Pod policy may act on it")
+	flagset.DurationVar(&opts.PeerLossRecoveryWindow, "peer-loss-recovery-window", peerloss.DefaultRecoveryWindow,
+		"How long a peer connectivity must remain stable before the remote unavailable mark is cleared")
+	flagset.DurationVar(&opts.PeerLossRetentionPeriod, "peer-loss-retention-period", peerloss.DefaultRetentionPeriod,
+		"Extra grace, after the loss is confirmed, before an authorized eviction is requested")
+	flagset.BoolVar(&opts.EnablePeerLossEviction, "enable-peer-loss-eviction", false,
+		"Allow eviction (or forced deletion of terminating Pods) on a confirmed peer loss. "+
+			"Pods must explicitly opt in through the "+consts.PeerLossPolicyAnnotationKey+" annotation")
 
 	// Cross module
 	flagset.BoolVar(&opts.EnableAPIServerProxyIPRemapping, "enable-api-server-proxy-ip-remapping", true, "Enable the API server proxy IP remapping")

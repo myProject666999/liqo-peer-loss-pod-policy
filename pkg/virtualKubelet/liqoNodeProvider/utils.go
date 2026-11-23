@@ -20,6 +20,7 @@ import (
 	gomaps "maps"
 	"reflect"
 	"strconv"
+	"time"
 
 	"gomodules.xyz/jsonpatch/v2"
 	v1 "k8s.io/api/core/v1"
@@ -103,6 +104,37 @@ func (p *LiqoNodeProvider) applyForeignCluster(foreigncluster *liqov1beta1.Forei
 		p.networkModuleEnabled = ptr.To(fcutils.IsNetworkingModuleEnabled(foreigncluster))
 	}
 	p.networkReady = fcutils.IsNetworkingEstablished(foreigncluster)
+	p.recordPeerObservation()
+}
+
+// recordPeerObservation updates the last observed peer connectivity and, when the peer is connected, the last instant
+// at which it was observed as ready. The last ready timestamp is preserved while the peer is disconnected or
+// unconfirmed, so that the last successful observation remains available (marked as stale) instead of being lost.
+func (p *LiqoNodeProvider) recordPeerObservation() {
+	if p.networkReady {
+		p.peerObservation = consts.PeerObservationConnected
+		now := metav1.Now()
+		p.peerLastReady = &now
+		return
+	}
+	p.peerObservation = consts.PeerObservationDisconnected
+}
+
+// applyPeerObservationAnnotations publishes the peer observation on the node annotations, always marking it as stale:
+// the annotation reports the last observed state, not a live guarantee that the remote cluster is still serving.
+func (p *LiqoNodeProvider) applyPeerObservationAnnotations() {
+	if p.node.Annotations == nil {
+		p.node.Annotations = map[string]string{}
+	}
+	if p.peerObservation == "" {
+		p.node.Annotations[consts.PeerObservationAnnotationKey] = consts.PeerObservationUnconfirmed
+	} else {
+		p.node.Annotations[consts.PeerObservationAnnotationKey] = p.peerObservation
+	}
+	p.node.Annotations[consts.PeerObservationStaleAnnotationKey] = strconv.FormatBool(true)
+	if p.peerLastReady != nil {
+		p.node.Annotations[consts.PeerLastObservedReadyAnnotationKey] = p.peerLastReady.UTC().Format(time.RFC3339)
+	}
 }
 
 func (p *LiqoNodeProvider) recomputeNodeState() {
@@ -130,6 +162,11 @@ func (p *LiqoNodeProvider) recomputeNodeState() {
 	}
 
 	p.node.Status.Addresses = []v1.NodeAddress{{Type: v1.NodeInternalIP, Address: p.nodeIP}}
+
+	// Publish the peer observation as a separate, explicitly stale annotation. The node Ready status keeps following
+	// the standard Kubernetes node lifecycle (NotReady + NetworkUnavailable on loss); the last successful observation
+	// is reported here without pretending the remote cluster is still able to serve.
+	p.applyPeerObservationAnnotations()
 }
 
 func (p *LiqoNodeProvider) patchLabels(ctx context.Context, labels map[string]string) error {

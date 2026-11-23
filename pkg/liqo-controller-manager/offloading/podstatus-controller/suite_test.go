@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/kubectl/pkg/scheme"
 
+	liqov1beta1 "github.com/liqotech/liqo/apis/core/v1beta1"
 	"github.com/liqotech/liqo/pkg/utils/testutil"
 )
 
@@ -33,4 +34,5 @@ func TestNodeFailureController(t *testing.T) {
 var _ = BeforeSuite(func() {
 	testutil.LogsToGinkgoWriter()
 	Expect(corev1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(liqov1beta1.AddToScheme(scheme.Scheme)).To(Succeed())
 })

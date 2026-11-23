@@ -122,6 +122,11 @@ func DeleteModuleCondition(module *liqov1beta1.Module, conditionType liqov1beta1
 	module.Conditions = deleteCondition(module.Conditions, conditionType)
 }
 
+// GetCondition returns the condition with the given type, or nil if it is not set.
+func GetCondition(conditions []liqov1beta1.Condition, conditionType liqov1beta1.ConditionType) *liqov1beta1.Condition {
+	return findCondition(conditions, conditionType)
+}
+
 // GetStatus returns the status for the given condition. If the condition is not set, it returns the None status.
 func GetStatus(conditions []liqov1beta1.Condition, conditionType liqov1beta1.ConditionType) liqov1beta1.ConditionStatusType {
 	cond := findCondition(conditions, conditionType)

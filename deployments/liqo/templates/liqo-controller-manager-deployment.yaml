@@ -129,6 +129,9 @@ spec:
           {{- if .Values.controllerManager.config.enableNodeFailureController }}
           - --enable-node-failure-controller
           {{- end }}
+          {{- if .Values.controllerManager.config.enablePeerLossEviction }}
+          - --enable-peer-loss-eviction
+          {{- end }}
           {{- if .Values.networking.denyDirectConnections }}
           - --deny-direct-connections
           {{- end }}

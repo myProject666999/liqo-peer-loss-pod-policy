@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -54,6 +55,13 @@ type LiqoNodeProvider struct {
 
 	networkModuleEnabled *bool // nil = ForeignCluster not yet observed
 	networkReady         bool
+
+	// peerObservation is the last observed connectivity towards the peer cluster, and peerLastReady is the last
+	// instant at which it was observed as connected. They are published as node annotations so that the last
+	// successful observation remains visible (and is marked stale) while the peer cannot be confirmed, instead of
+	// pretending the remote cluster is still serving.
+	peerObservation string
+	peerLastReady   *metav1.Time
 
 	onNodeChangeCallback func(*corev1.Node)
 	updateMutex          sync.Mutex

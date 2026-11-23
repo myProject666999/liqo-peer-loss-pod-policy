@@ -35,6 +35,7 @@ import (
 	mapsctrl "github.com/liqotech/liqo/pkg/liqo-controller-manager/offloading/namespacemap-controller"
 	nsoffctrl "github.com/liqotech/liqo/pkg/liqo-controller-manager/offloading/namespaceoffloading-controller"
 	nodefailurectrl "github.com/liqotech/liqo/pkg/liqo-controller-manager/offloading/nodefailure-controller"
+	"github.com/liqotech/liqo/pkg/liqo-controller-manager/offloading/peerloss"
 	podstatusctrl "github.com/liqotech/liqo/pkg/liqo-controller-manager/offloading/podstatus-controller"
 	shadowepsctrl "github.com/liqotech/liqo/pkg/liqo-controller-manager/offloading/shadowendpointslice-controller"
 	shadowpodctrl "github.com/liqotech/liqo/pkg/liqo-controller-manager/offloading/shadowpod-controller"
@@ -62,6 +63,10 @@ type OffloadingOption struct {
 	ShadowEndpointSliceWorkers  int
 	DenyDirectConnections       bool
 	ResyncPeriod                time.Duration
+	PeerLossConfirmationWindow  time.Duration
+	PeerLossRecoveryWindow      time.Duration
+	PeerLossRetentionPeriod     time.Duration
+	EnablePeerLossEviction      bool
 }
 
 // NewOffloadingOption creates a new OffloadingOption with the given parameters.
@@ -93,6 +98,10 @@ func NewOffloadingOption(clientset *kubernetes.Clientset, localClusterID liqov1b
 		ShadowEndpointSliceWorkers:  opts.ShadowEndpointSliceWorkers,
 		DenyDirectConnections:       opts.DenyDirectConnections,
 		ResyncPeriod:                opts.ResyncPeriod,
+		PeerLossConfirmationWindow:  opts.PeerLossConfirmationWindow,
+		PeerLossRecoveryWindow:      opts.PeerLossRecoveryWindow,
+		PeerLossRetentionPeriod:     opts.PeerLossRetentionPeriod,
+		EnablePeerLossEviction:      opts.EnablePeerLossEviction,
 	}, nil
 }
 
@@ -185,6 +194,12 @@ func SetupOffloadingModule(ctx context.Context, mgr manager.Manager, opts *Offlo
 	podStatusReconciler := &podstatusctrl.PodStatusReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Params: peerloss.Params{
+			ConfirmationWindow: opts.PeerLossConfirmationWindow,
+			RecoveryWindow:     opts.PeerLossRecoveryWindow,
+			RetentionPeriod:    opts.PeerLossRetentionPeriod,
+			AllowEviction:      opts.EnablePeerLossEviction,
+		},
 	}
 	if err = podStatusReconciler.SetupWithManager(mgr); err != nil {
 		klog.Errorf("Unable to setup the podstatus reconciler: %v", err)
