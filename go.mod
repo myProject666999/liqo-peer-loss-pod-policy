@@ -15,7 +15,7 @@ require (
 	github.com/gruntwork-io/terratest v0.48.1
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mattn/go-isatty v0.0.20
-	github.com/miekg/dns v1.1.62
+	github.com/miekg/dns v1.1.73
 	github.com/mittwald/go-helm-client v0.12.14
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
